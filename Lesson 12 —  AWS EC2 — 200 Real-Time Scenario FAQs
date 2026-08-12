@@ -1,0 +1,2179 @@
+# AWS EC2 — 200 Real-Time Scenario FAQs
+
+## Set 1: Scenarios 1–100
+
+---
+
+## 1. Your EC2 instance is running, but users cannot access the website. What do you check?
+
+1. Confirm the EC2 instance is actually **Running** and status checks are passing.
+2. Check the application's web server/process and listening port.
+3. Check the Security Group for the required inbound port.
+4. Check subnet route tables, Internet Gateway, or ALB configuration.
+5. Check application logs and CloudWatch metrics for errors.
+
+---
+
+## 2. EC2 shows “Running” but the application is down. Why?
+
+1. **Running** only means the instance itself is powered on.
+2. The application process can still have crashed.
+3. The web server could be stopped or listening on the wrong port.
+4. The OS could have resource problems such as CPU or memory exhaustion.
+5. Check processes, service status, logs, and CloudWatch metrics.
+
+---
+
+## 3. CPU utilization suddenly reaches 100%. What would you do?
+
+1. Check which process is consuming CPU.
+2. Review CloudWatch CPU metrics and determine when the spike started.
+3. Check whether traffic increased through the ALB.
+4. Investigate application behavior, runaway processes, or inefficient code.
+5. If demand is legitimate, use Auto Scaling or a larger instance size.
+
+---
+
+## 4. CPU is constantly above 80%. What could be wrong?
+
+1. The instance may simply be undersized.
+2. Application traffic may have increased permanently.
+3. A process may be consuming excessive CPU.
+4. Poor application/database design can cause unnecessary processing.
+5. Compare metrics over time before deciding to scale vertically or horizontally.
+
+---
+
+## 5. Your EC2 instance suddenly becomes unreachable through SSH. What do you check?
+
+1. Confirm the instance is running and status checks pass.
+2. Verify the Security Group allows SSH from the correct source.
+3. Check network ACLs and route configuration if relevant.
+4. Confirm the instance has appropriate network addressing/routing.
+5. Consider Systems Manager Session Manager as an alternative management path.
+
+---
+
+## 6. SSH works from one IP but not another. Why?
+
+1. The Security Group may allow only a specific source CIDR.
+2. The new client IP may not be authorized.
+3. A corporate VPN or NAT may change the apparent source IP.
+4. Check the inbound SSH rule carefully.
+5. Avoid opening SSH to `0.0.0.0/0` unless there is a compelling, controlled reason.
+
+---
+
+## 7. Why can't you SSH into a private EC2 instance directly from the internet?
+
+1. A private instance isn't directly reachable from the public internet.
+2. It normally doesn't have a public IPv4 address.
+3. Its subnet routing doesn't provide direct internet ingress.
+4. You can use Systems Manager Session Manager or controlled administrative connectivity.
+5. This reduces the public attack surface.
+
+---
+
+## 8. An EC2 instance needs internet access but should remain private. What do you use?
+
+1. Place the instance in a private subnet.
+2. Create a NAT Gateway in a suitable public subnet.
+3. Route private-subnet internet-bound traffic to the NAT Gateway.
+4. The NAT Gateway uses the Internet Gateway for outbound connectivity.
+5. The EC2 instance remains without direct inbound internet exposure.
+
+---
+
+## 9. What happens if the NAT Gateway fails?
+
+1. Private instances may lose their normal outbound internet connectivity.
+2. Existing internal VPC communication can continue.
+3. The application may fail if it depends on external services.
+4. For high availability, NAT Gateway design should account for Availability Zones.
+5. Monitor NAT-related connectivity and dependencies through appropriate metrics/logging.
+
+---
+
+## 10. An EC2 instance cannot download software updates. What do you check?
+
+1. Confirm the instance can reach the required destination.
+2. Check private-subnet route tables.
+3. Verify NAT Gateway configuration if the instance is private.
+4. Check Security Groups/NACLs and DNS configuration.
+5. Test connectivity from the operating system.
+
+---
+
+# Networking Scenarios
+
+## 11. What makes a subnet public?
+
+1. A subnet is associated with a route table.
+2. That route table contains a route to an Internet Gateway.
+3. Resources also need appropriate addressing to communicate directly with the internet.
+4. A subnet isn't public merely because you named it “public.”
+5. Routing configuration is the key concept.
+
+---
+
+## 12. EC2 has a public IP but still cannot access the internet. What do you check?
+
+1. Verify the subnet route table has a route to the Internet Gateway.
+2. Verify the VPC has an Internet Gateway attached.
+3. Check Security Group egress rules.
+4. Check network ACLs if relevant.
+5. Confirm the instance's OS/network configuration is healthy.
+
+---
+
+## 13. Two EC2 instances in the same VPC cannot communicate. What do you check?
+
+1. Verify they have network connectivity within the VPC.
+2. Check both Security Groups.
+3. Check subnet/network ACL configuration.
+4. Verify the application is listening on the expected private IP/port.
+5. Test connectivity using the instances' private addresses.
+
+---
+
+## 14. Two EC2 instances in different VPCs need communication. What is required?
+
+1. The VPCs need a connectivity mechanism.
+2. Options include VPC peering or Transit Gateway depending on architecture.
+3. Route tables must direct traffic correctly.
+4. Security Groups/NACLs must permit the traffic.
+5. CIDR ranges must not conflict for common connectivity designs.
+
+---
+
+## 15. Why should VPC CIDR ranges avoid overlap?
+
+1. Routing depends on unambiguous destination networks.
+2. Overlapping CIDRs create routing ambiguity.
+3. VPC peering and other connectivity architectures can be affected.
+4. Large organizations need predictable address planning.
+5. Design IP ranges carefully before creating interconnected networks.
+
+---
+
+## 16. EC2 can communicate internally but not externally. What does that suggest?
+
+1. VPC-local networking is probably functioning.
+2. Investigate internet routing next.
+3. Check Internet Gateway or NAT Gateway configuration.
+4. Check Security Group egress rules.
+5. Check DNS and external destination access.
+
+---
+
+## 17. EC2 can reach an IP address but cannot reach a domain name. What might be wrong?
+
+1. Network connectivity may be working.
+2. DNS resolution may be failing.
+3. Check VPC DNS settings and resolver behavior.
+4. Test with DNS utilities from the instance.
+5. Distinguish DNS failure from application/network failure.
+
+---
+
+## 18. An application works using localhost but not using the EC2 private IP. Why?
+
+1. The application may be listening only on `127.0.0.1`.
+2. It needs to listen on an appropriate interface such as the instance's private interface.
+3. Check the application's bind/listen configuration.
+4. Verify the Security Group permits the port.
+5. Test with `ss`, `netstat`, or equivalent OS tools.
+
+---
+
+## 19. Why shouldn't you use an EC2 public IP as an application's permanent identity?
+
+1. Public IP addresses can change under certain instance lifecycle events.
+2. Applications should use stable DNS-based endpoints where appropriate.
+3. Load balancers provide stable entry points for scalable applications.
+4. Auto Scaling makes individual instance identity even less reliable.
+5. Design around services rather than individual server addresses.
+
+---
+
+## 20. An EC2 instance's public IP changed after a stop/start. Why?
+
+1. A normal public IPv4 address isn't necessarily permanently associated with the instance.
+2. Stop/start can result in a different public IPv4 address.
+3. Elastic IP addresses provide a persistent public IPv4 association.
+4. Production architectures often avoid depending on individual instance public IPs.
+5. DNS/load balancing is generally preferable for scalable applications.
+
+---
+
+# Security Scenarios
+
+## 21. What is the safest general pattern for public web traffic to EC2?
+
+1. Put an Application Load Balancer in front.
+2. Allow HTTPS from the internet to the ALB.
+3. Keep application EC2 instances private when possible.
+4. Allow EC2 application traffic only from the ALB Security Group.
+5. Avoid exposing backend ports directly to the internet.
+
+---
+
+## 22. Why should you avoid allowing SSH from `0.0.0.0/0`?
+
+1. It exposes the SSH service to the entire internet.
+2. Automated scanning and attack attempts are common.
+3. Restrict SSH to trusted networks where possible.
+4. Prefer Systems Manager Session Manager when appropriate.
+5. If SSH is necessary, use strong authentication and tightly controlled access.
+
+---
+
+## 23. Why use separate Security Groups for ALB and EC2?
+
+1. Each layer gets its own security boundary.
+2. ALB rules can control public web traffic.
+3. EC2 rules can permit traffic only from the ALB.
+4. Backend instances don't need to trust the entire internet.
+5. This follows the principle of least privilege.
+
+---
+
+## 24. An EC2 application listens on port 8080. How should traffic flow?
+
+1. Users connect to the ALB using HTTPS, commonly port 443.
+2. The ALB forwards traffic to the target group.
+3. The target group sends traffic to EC2 on port 8080.
+4. EC2 Security Group allows port 8080 from the ALB Security Group.
+5. Port 8080 doesn't need to be publicly exposed.
+
+---
+
+## 25. A developer wants to open every EC2 port temporarily. Should you allow it?
+
+1. Generally, no.
+2. Open only the required port and source.
+3. Broad rules increase attack surface.
+4. Temporary troubleshooting should still use controlled access.
+5. Remove temporary rules immediately after troubleshooting.
+
+---
+
+## 26. Security Group vs Network ACL — what's the practical difference?
+
+1. Security Groups are associated with ENIs/instances and are **stateful**.
+2. Network ACLs operate at the subnet level.
+3. Network ACLs are **stateless**, so return traffic must be explicitly considered.
+4. Security Groups are commonly the primary instance-level firewall mechanism.
+5. NACLs can provide an additional subnet-level control layer.
+
+---
+
+## 27. An application suddenly becomes inaccessible after a Security Group change. What do you check?
+
+1. Compare the previous and current rules.
+2. Verify the required inbound application port.
+3. Verify the source is correct.
+4. Check whether the ALB-to-EC2 rule still allows traffic.
+5. Test connectivity and review application/ALB health information.
+
+---
+
+## 28. Why is “allow from the ALB Security Group” better than “allow from anywhere”?
+
+1. It limits the trusted source.
+2. Backend instances don't accept arbitrary internet traffic.
+3. The ALB becomes the controlled entry point.
+4. It reduces accidental exposure.
+5. It follows least-privilege networking.
+
+---
+
+## 29. EC2 credentials are accidentally exposed in application code. What should you do?
+
+1. Treat the credentials as compromised.
+2. Rotate or revoke the affected credentials immediately.
+3. Investigate CloudTrail and relevant logs for misuse.
+4. Replace long-lived credentials with IAM roles where possible.
+5. Remove secrets from source code and use appropriate secret-management mechanisms.
+
+---
+
+## 30. Why should EC2 applications use IAM roles instead of hard-coded AWS credentials?
+
+1. IAM roles provide temporary credentials.
+2. Credentials don't need to be embedded in application code.
+3. Permissions can be restricted to required AWS APIs.
+4. Rotation becomes easier because credentials are managed by AWS.
+5. This reduces credential leakage risk.
+
+---
+
+# Storage Scenarios
+
+## 31. Your EC2 instance loses data after termination. Why?
+
+1. Instance storage behavior depends on the storage type.
+2. EBS volumes are persistent independently of the instance lifecycle in many configurations.
+3. Instance store is ephemeral.
+4. Termination behavior of EBS volumes depends on the volume's configuration.
+5. Always understand storage lifecycle before deleting instances.
+
+---
+
+## 32. When would you use EBS?
+
+1. When EC2 needs persistent block storage.
+2. For operating-system volumes.
+3. For application data requiring block-level storage.
+4. For workloads needing appropriate EBS performance characteristics.
+5. Backups can be created through EBS snapshots.
+
+---
+
+## 33. Your EC2 disk is almost full. What do you do?
+
+1. Confirm filesystem utilization from the OS.
+2. Identify large files/logs consuming space.
+3. Clean unnecessary data safely.
+4. Expand the EBS volume if more capacity is required.
+5. Extend the partition/filesystem inside the OS as required.
+
+---
+
+## 34. EBS volume size was increased, but Linux still shows the old filesystem size. Why?
+
+1. Increasing EBS capacity changes the block device size.
+2. The partition may still need expansion.
+3. The filesystem may also need to be extended.
+4. Verify each layer: volume → partition → filesystem.
+5. Use the appropriate OS-specific tools carefully.
+
+---
+
+## 35. Your application needs faster disk performance. What should you investigate?
+
+1. Measure current I/O workload first.
+2. Check EBS volume type and configured performance.
+3. Review IOPS and throughput requirements.
+4. Check whether the application is CPU or memory constrained instead.
+5. Select an appropriate storage configuration based on actual workload characteristics.
+
+---
+
+## 36. Why are EBS snapshots important?
+
+1. They provide point-in-time backups of EBS volumes.
+2. They can support recovery after accidental changes or failures.
+3. They can help create new volumes from previous data states.
+4. Snapshot strategy should consider retention and recovery requirements.
+5. Snapshots are part of a backup strategy, not a replacement for every type of backup.
+
+---
+
+# Load Balancing Scenarios
+
+## 37. ALB shows one EC2 target as unhealthy. What do you check?
+
+1. Check the target's application process.
+2. Verify the configured health-check path and port.
+3. Confirm the EC2 Security Group permits ALB traffic.
+4. Test the health endpoint from the instance/network.
+5. Review ALB target-health information and application logs.
+
+---
+
+## 38. ALB returns 502 errors. What could cause this?
+
+1. The backend application may not be responding correctly.
+2. The target may be listening on the wrong port.
+3. The application could be crashing or timing out.
+4. Security or networking configuration could block communication.
+5. Check ALB behavior together with backend logs and health status.
+
+---
+
+## 39. Why is an ALB better than giving every EC2 instance a public IP?
+
+1. Users get one stable application entry point.
+2. Traffic can be distributed across multiple instances.
+3. Unhealthy instances can be removed from routing.
+4. SSL/TLS termination can be centralized at the ALB.
+5. Backend instances can remain private.
+
+---
+
+## 40. One EC2 instance receives much more traffic than others. What might you investigate?
+
+1. Check ALB routing and target health.
+2. Determine whether all targets are healthy.
+3. Check whether application behavior or session handling affects distribution.
+4. Review target registration and ALB configuration.
+5. Check whether the workload itself is uneven.
+
+---
+
+## 41. What happens when an ALB target fails its health check?
+
+1. The target becomes unhealthy.
+2. The ALB stops sending new traffic to that target.
+3. Healthy targets continue serving requests.
+4. Auto Scaling may replace the instance if configured appropriately.
+5. Investigate why the target failed rather than assuming the ALB caused it.
+
+---
+
+## 42. Why use health checks instead of simply checking whether EC2 is running?
+
+1. An EC2 instance can be running while its application is broken.
+2. Health checks can test application-level availability.
+3. They provide a better signal for traffic routing.
+4. They prevent traffic from being sent to broken applications.
+5. Health-check endpoints should be designed carefully.
+
+---
+
+# Auto Scaling Scenarios
+
+## 43. Traffic suddenly doubles. How can EC2 architecture respond?
+
+1. CloudWatch metrics can identify increased load.
+2. Auto Scaling policies can increase instance capacity.
+3. New instances are launched from the configured template/configuration.
+4. They become targets after passing appropriate health checks.
+5. The ALB distributes traffic across healthy instances.
+
+---
+
+## 44. Why is horizontal scaling often preferred for web applications?
+
+1. Add more instances instead of relying on one large server.
+2. It can improve availability across Availability Zones.
+3. Auto Scaling can adjust capacity dynamically.
+4. Failure of one instance doesn't necessarily stop the service.
+5. It works naturally with load balancers.
+
+---
+
+## 45. When would you choose vertical scaling?
+
+1. When the workload benefits from more CPU, memory, or other instance resources.
+2. When the application cannot easily scale horizontally.
+3. When simplicity is more important than distributed architecture.
+4. It can be useful as an immediate capacity adjustment.
+5. But it has limits and may require lifecycle operations.
+
+---
+
+## 46. Auto Scaling keeps launching replacement instances. Why?
+
+1. Existing instances may repeatedly fail health checks.
+2. The application configuration may be broken.
+3. The AMI or launch template may be incorrect.
+4. User-data/bootstrap scripts could be failing.
+5. Fix the underlying issue instead of repeatedly increasing capacity.
+
+---
+
+## 47. Auto Scaling launches an EC2 instance but it never becomes healthy. What do you check?
+
+1. Inspect the launch template/configuration.
+2. Check user-data and startup logs.
+3. Verify Security Groups and networking.
+4. Confirm the application starts and listens on the expected port.
+5. Check the target group's health-check configuration.
+
+---
+
+## 48. Why use a Launch Template with Auto Scaling?
+
+1. It defines how new EC2 instances should be launched.
+2. It can specify AMI, instance type, networking, Security Groups, and other settings.
+3. Auto Scaling uses that configuration to create instances consistently.
+4. It reduces manual configuration differences.
+5. Versioning templates can help manage infrastructure changes.
+
+---
+
+## 49. Auto Scaling is scaling out too aggressively. What would you investigate?
+
+1. Review the scaling policy.
+2. Check the metric and threshold triggering scaling.
+3. Check evaluation periods and cooldown/stabilization behavior.
+4. Determine whether the metric reflects genuine workload.
+5. Tune policies based on observed application behavior.
+
+---
+
+## 50. Auto Scaling scales in while users are still active. What should you investigate?
+
+1. Check whether the scaling policy is too aggressive.
+2. Verify load-balancer and application behavior during scale-in.
+3. Ensure the application handles termination correctly.
+4. Check scaling protection/draining behavior where applicable.
+5. Use appropriate metrics and stabilization settings.
+
+---
+
+# Availability & Disaster Scenarios
+
+## 51. Why deploy EC2 instances across multiple Availability Zones?
+
+1. It reduces dependency on one Availability Zone.
+2. It improves application availability.
+3. ALB can distribute traffic across zones.
+4. Auto Scaling can maintain capacity across zones.
+5. It provides resilience against localized infrastructure failures.
+
+---
+
+## 52. One Availability Zone goes down. What should happen?
+
+1. Instances in the affected AZ may become unavailable.
+2. Healthy instances in other AZs can continue serving traffic.
+3. The ALB can route traffic to healthy targets.
+4. Auto Scaling can restore desired capacity when possible.
+5. Your application must actually be designed with sufficient multi-AZ capacity.
+
+---
+
+## 53. Is multi-AZ the same as backup?
+
+1. No.
+2. Multi-AZ primarily improves availability.
+3. Backups protect against data loss and recovery scenarios.
+4. An application can be highly available and still have bad data.
+5. Production systems generally need both availability and recovery strategies.
+
+---
+
+## 54. Your EC2 instance is accidentally terminated. How do you recover?
+
+1. Determine whether the workload is stateless or stateful.
+2. If managed by Auto Scaling, a replacement may launch automatically.
+3. Restore required persistent data from appropriate backups/snapshots.
+4. Investigate why the instance was terminated.
+5. Improve automation and safeguards to prevent recurrence.
+
+---
+
+## 55. Your application server fails but users don't notice. Why?
+
+1. The ALB detected the target as unhealthy.
+2. Traffic was redirected to healthy instances.
+3. Auto Scaling may have launched a replacement.
+4. Monitoring should still record the failure.
+5. This demonstrates the benefit of redundancy and health checks.
+
+---
+
+# Monitoring & Operations
+
+## 56. CloudWatch shows high CPU. What does that tell you?
+
+1. It tells you CPU utilization is high.
+2. It doesn't automatically identify the root cause.
+3. Investigate processes and application behavior.
+4. Compare traffic, logs, and other metrics.
+5. Use the evidence to determine whether scaling or troubleshooting is appropriate.
+
+---
+
+## 57. CloudWatch shows normal CPU, but the application is slow. What else could be wrong?
+
+1. Memory could be constrained.
+2. Disk I/O could be a bottleneck.
+3. Network latency may be involved.
+4. Database performance could be poor.
+5. Application code or external dependencies could be slow.
+
+---
+
+## 58. Why isn't EC2 memory utilization always visible in basic monitoring?
+
+1. Standard EC2 monitoring doesn't automatically expose every OS-level metric.
+2. Memory is an operating-system-level metric.
+3. Additional collection can be configured using the CloudWatch Agent.
+4. The agent can publish memory and other detailed metrics.
+5. This provides deeper visibility into the guest OS.
+
+---
+
+## 59. Your application is throwing errors. Where do you look?
+
+1. Check application logs.
+2. Check CloudWatch Logs if centralized logging is configured.
+3. Review EC2/system logs where relevant.
+4. Check ALB metrics and target health.
+5. Correlate logs with CloudWatch metrics and deployment events.
+
+---
+
+## 60. Why are CloudWatch alarms important?
+
+1. They continuously evaluate configured metrics.
+2. They detect conditions that require attention.
+3. They can trigger notifications or automated actions.
+4. They reduce dependence on manual dashboard monitoring.
+5. Good alarms should represent meaningful operational conditions.
+
+---
+
+## 61. Your CloudWatch alarm says INSUFFICIENT_DATA. What does it mean?
+
+1. The alarm doesn't currently have enough usable data to determine its state.
+2. It isn't equivalent to a healthy or failed condition.
+3. Check metric availability and configuration.
+4. Investigate missing data or newly created metrics.
+5. Configure alarm treatment of missing data appropriately for the use case.
+
+---
+
+## 62. What metrics would you monitor for an EC2 web server?
+
+1. CPU utilization.
+2. Network traffic.
+3. Disk/storage utilization where appropriate.
+4. Memory utilization if collected.
+5. Application and ALB metrics for end-to-end visibility.
+
+---
+
+## 63. What metrics would you monitor for an ALB?
+
+1. Request volume.
+2. Target health.
+3. HTTP error behavior.
+4. Latency-related metrics.
+5. Other ALB metrics relevant to your application's traffic pattern.
+
+---
+
+## 64. Why should you monitor the application, not just EC2?
+
+1. EC2 can be healthy while the application is broken.
+2. CPU and network metrics don't describe every application failure.
+3. Application logs reveal business and runtime errors.
+4. Health endpoints provide application-level signals.
+5. End-to-end monitoring gives better operational visibility.
+
+---
+
+# Systems Manager & Operations
+
+## 65. Why use Systems Manager Session Manager?
+
+1. It can provide shell access to supported instances.
+2. It can reduce the need for inbound SSH exposure.
+3. It integrates with AWS identity and access controls.
+4. Sessions can be centrally managed and audited.
+5. It is particularly useful for private EC2 instances.
+
+---
+
+## 66. An EC2 instance is private and you need emergency access. What could you use?
+
+1. Systems Manager Session Manager is a common option.
+2. Confirm the instance is properly configured for Systems Manager.
+3. Verify the required IAM permissions.
+4. Verify required network connectivity/endpoints.
+5. Use controlled administrative access rather than exposing unnecessary ports.
+
+---
+
+## 67. Why should operational access be audited?
+
+1. It provides accountability.
+2. You can identify who performed a change.
+3. It helps investigate incidents.
+4. It supports compliance requirements.
+5. It improves operational discipline.
+
+---
+
+## 68. A deployment caused an outage. What would you investigate?
+
+1. Identify exactly what changed.
+2. Review application and infrastructure logs.
+3. Compare CloudWatch metrics before and after deployment.
+4. Check ALB target health and application errors.
+5. Roll back or remediate using a controlled deployment process.
+
+---
+
+# Cost & Performance Scenarios
+
+## 69. Your EC2 bill is unexpectedly high. What do you check?
+
+1. Review running instances and instance sizes.
+2. Check whether instances are unnecessarily running 24/7.
+3. Look for orphaned or unused resources.
+4. Review EBS volumes and snapshots.
+5. Analyze workload utilization and choose appropriate pricing/scaling strategies.
+
+---
+
+## 70. CPU utilization is only 10%, but you're paying for a large instance. What might you do?
+
+1. Confirm CPU isn't low because another resource is the bottleneck.
+2. Check memory, network, and disk usage.
+3. Review workload patterns over time.
+4. Consider a smaller instance if consistently underutilized.
+5. Test changes rather than blindly downsizing production capacity.
+
+---
+
+## 71. When might a Reserved Instance or Savings Plan make sense?
+
+1. When you have predictable long-term usage.
+2. When the workload is expected to remain stable.
+3. When flexibility requirements fit the chosen commitment model.
+4. Compare expected savings against commitment risk.
+5. Don't commit before understanding your workload and growth pattern.
+
+---
+
+## 72. When are Spot Instances useful?
+
+1. For workloads that can tolerate interruption.
+2. For flexible or fault-tolerant batch workloads.
+3. For distributed processing or suitable stateless workloads.
+4. They can reduce compute costs.
+5. They are generally not ideal for workloads requiring uninterrupted individual instances.
+
+---
+
+## 73. Your application needs predictable capacity but traffic varies. What architecture helps?
+
+1. Use an Auto Scaling Group.
+2. Define minimum, desired, and maximum capacity.
+3. Use CloudWatch-based scaling policies.
+4. Put an ALB in front for traffic distribution.
+5. Tune scaling based on actual workload behavior.
+
+---
+
+## 74. Why shouldn't you simply choose the biggest EC2 instance?
+
+1. Bigger isn't automatically more efficient.
+2. You may pay for unused capacity.
+3. The workload may scale better horizontally.
+4. Other resources may be the actual bottleneck.
+5. Benchmark and measure before selecting capacity.
+
+---
+
+# Real Production Scenarios
+
+## 75. You have one public EC2 instance hosting everything. What's wrong with this architecture?
+
+1. It creates a single point of failure.
+2. Scaling is limited.
+3. Maintenance can cause downtime.
+4. Database and application layers are tightly coupled.
+5. A load-balanced, multi-AZ design is generally more resilient.
+
+---
+
+## 76. How would you improve a single-EC2 production application?
+
+1. Put an ALB in front of the application.
+2. Use multiple EC2 instances across Availability Zones.
+3. Introduce Auto Scaling.
+4. Separate the database into an appropriate managed/private database layer.
+5. Add CloudWatch monitoring, logging, and backups.
+
+---
+
+## 77. Your application works perfectly on one server but fails when you add a second. Why?
+
+1. The application may store session data locally.
+2. Files may be stored only on the first instance.
+3. The database configuration may be inconsistent.
+4. The application may not be truly stateless.
+5. Use shared/external state where appropriate and test multi-instance behavior.
+
+---
+
+## 78. Users are randomly logged out after adding an ALB. Why might this happen?
+
+1. Sessions may be stored only on individual EC2 instances.
+2. Requests can reach different instances.
+3. One instance may not know another instance's session.
+4. Use centralized session storage or an appropriate session strategy.
+5. Don't assume load balancing automatically solves application state.
+
+---
+
+## 79. Your application stores uploaded images on `/var/www/uploads`. What happens when you scale to multiple EC2 instances?
+
+1. Each instance has its own local filesystem.
+2. A file uploaded to EC2 #1 may not exist on EC2 #2.
+3. Users can experience inconsistent behavior.
+4. Shared/external object storage is usually a better design for shared uploaded files.
+5. Make application instances as stateless as practical.
+
+---
+
+## 80. Why is stateless architecture useful with Auto Scaling?
+
+1. Any healthy instance can handle a request.
+2. Instances can be added or removed freely.
+3. User/application state lives in appropriate external systems.
+4. Failed instances are easier to replace.
+5. Scaling becomes simpler and more predictable.
+
+---
+
+## 81. Your application needs configuration values on every EC2 instance. How do you manage them?
+
+1. Avoid manually configuring each server.
+2. Use launch templates and automated bootstrap/configuration.
+3. Store sensitive values using appropriate secret-management services.
+4. Use Systems Manager capabilities where appropriate.
+5. Keep configuration consistent and version-controlled.
+
+---
+
+## 82. A new EC2 instance launches but has the wrong configuration. What might be wrong?
+
+1. Check the Launch Template.
+2. Check the AMI version.
+3. Review user-data/bootstrap scripts.
+4. Check IAM role and Security Group settings.
+5. Verify that the Auto Scaling Group is using the intended template version.
+
+---
+
+## 83. Why use immutable infrastructure?
+
+1. Replace instances rather than manually modifying them indefinitely.
+2. New instances are created from known configurations.
+3. Configuration drift is reduced.
+4. Rollbacks become easier.
+5. Auto Scaling naturally fits this operational model.
+
+---
+
+## 84. What is configuration drift?
+
+1. It occurs when servers that should be identical become different.
+2. Manual changes are a common cause.
+3. One instance may work while another fails.
+4. Automation and immutable infrastructure reduce drift.
+5. Compare configuration and deployment artifacts when troubleshooting.
+
+---
+
+# Failure & Incident Scenarios
+
+## 85. The ALB is healthy, but all targets are unhealthy. What do you investigate first?
+
+1. Confirm the application is running on the EC2 instances.
+2. Verify target ports.
+3. Verify health-check path.
+4. Check EC2 Security Groups allowing ALB traffic.
+5. Test the health endpoint directly from within the appropriate network context.
+
+---
+
+## 86. The EC2 instance passes status checks but the ALB says unhealthy. What does that tell you?
+
+1. The underlying EC2 instance is probably functioning at the infrastructure level.
+2. The application may still be broken.
+3. The target port/path could be wrong.
+4. Security Groups may block ALB traffic.
+5. ALB health status is application-path-specific and should be investigated separately.
+
+---
+
+## 87. The application is slow only during peak hours. What would you analyze?
+
+1. Compare traffic with response latency.
+2. Review CPU and memory.
+3. Review database performance.
+4. Check ALB metrics and target distribution.
+5. Determine whether scaling thresholds are appropriate.
+
+---
+
+## 88. Your EC2 instances repeatedly run out of memory. What would you do?
+
+1. Confirm memory usage using OS tools/CloudWatch Agent.
+2. Identify the process consuming memory.
+3. Investigate memory leaks or workload growth.
+4. Increase instance memory if appropriate.
+5. Consider horizontal scaling if the application architecture supports it.
+
+---
+
+## 89. Disk usage reaches 100% every night. What would you investigate?
+
+1. Check which directories/files grow overnight.
+2. Review application and system logs.
+3. Check log rotation and retention.
+4. Determine whether temporary files are accumulating.
+5. Automate cleanup or increase storage after identifying the root cause.
+
+---
+
+## 90. An EC2 instance has high network traffic. Is that automatically a problem?
+
+1. No.
+2. High traffic may be completely normal for the workload.
+3. Compare it with expected application behavior.
+4. Investigate unexpected spikes or unusual destinations.
+5. Correlate network metrics with application and security logs.
+
+---
+
+# Architecture & Interview Scenarios
+
+## 91. Design a highly available EC2 web application.
+
+1. Use a VPC with multiple Availability Zones.
+2. Put an ALB in public subnets.
+3. Put EC2 application instances in private subnets.
+4. Use an Auto Scaling Group across multiple AZs.
+5. Add monitoring, logging, secure database access, and backups.
+
+---
+
+## 92. How would you make EC2 secure in production?
+
+1. Avoid unnecessary public exposure.
+2. Use least-privilege Security Groups and IAM roles.
+3. Keep backend EC2 instances private where practical.
+4. Patch and monitor the operating system/application.
+5. Use controlled administrative access such as Systems Manager.
+
+---
+
+## 93. How would you make an EC2 application highly available?
+
+1. Use multiple EC2 instances.
+2. Spread instances across multiple Availability Zones.
+3. Put an ALB in front of them.
+4. Use Auto Scaling to replace failed instances.
+5. Ensure application state and data aren't dependent on one server.
+
+---
+
+## 94. How would you make an EC2 application scalable?
+
+1. Make the application as stateless as practical.
+2. Place an ALB in front.
+3. Use an Auto Scaling Group.
+4. Externalize shared state and persistent data.
+5. Use CloudWatch metrics and scaling policies.
+
+---
+
+## 95. How would you troubleshoot an EC2 production outage?
+
+1. Establish the scope: all users, some users, or one component.
+2. Check ALB, EC2 state, and health checks.
+3. Check networking and Security Groups.
+4. Check CloudWatch metrics and application logs.
+5. Identify the root cause, restore service, then prevent recurrence.
+
+---
+
+## 96. Your company wants zero public IPs on application EC2 instances. Can you do that?
+
+1. Yes, commonly by placing application instances in private subnets.
+2. Put an internet-facing ALB in public subnets.
+3. Allow ALB-to-EC2 communication privately.
+4. Use NAT Gateway or VPC endpoints for required outbound/service access.
+5. Use Systems Manager for administration where appropriate.
+
+---
+
+## 97. Why might a company choose EC2 instead of a fully managed compute service?
+
+1. EC2 provides extensive operating-system control.
+2. You can customize the OS and installed software.
+3. Some workloads require specific configurations.
+4. Existing applications may be designed around server-level control.
+5. The trade-off is that you have more operational responsibility.
+
+---
+
+## 98. What responsibilities remain with you when using EC2?
+
+1. You manage the guest operating system.
+2. You manage installed software and application configuration.
+3. You manage security hardening and patching.
+4. You manage application-level monitoring and operations.
+5. AWS manages the underlying cloud infrastructure, while the exact boundary depends on the service.
+
+---
+
+## 99. Explain a production EC2 architecture in an interview.
+
+1. **Users → ALB:** Internet traffic enters through the load balancer.
+2. **ALB → Target Group:** The ALB routes requests only to healthy targets.
+3. **EC2 → Auto Scaling:** Application instances run across multiple AZs and scale according to demand.
+4. **Networking/Security:** EC2 is preferably private, with restrictive Security Groups and controlled outbound access.
+5. **Operations:** CloudWatch, Systems Manager, backups, and logging provide monitoring, administration, and recovery capabilities.
+
+---
+
+# 🔥 100. Final Scenario — Design an EC2 Architecture From Scratch
+
+**Question:**
+You need to host a production e-commerce application for millions of users. How would you design it?
+
+### Answer:
+
+1. **Networking:** Create a VPC spanning multiple Availability Zones, with public subnets for the ALB and private subnets for application EC2 instances.
+2. **Traffic:** Put an internet-facing ALB in front, use HTTPS, and route requests through listeners and target groups to healthy EC2 instances.
+3. **Compute:** Use an Auto Scaling Group with a Launch Template, distribute instances across AZs, and scale based on appropriate CloudWatch metrics.
+4. **Security:** Restrict EC2 Security Groups to application traffic from the ALB, use IAM roles, keep databases private, and use Systems Manager for administration.
+5. **Operations & resilience:** Centralize logs/metrics in CloudWatch, configure alarms, use backups and recovery procedures, and design the application so individual EC2 failures don't cause an outage.
+
+---
+
+# 🏆 The 10 Most Important Real-World Patterns
+
+If you're preparing for **AWS interviews + real production work**, these are the patterns I'd memorize first:
+
+| #  | Scenario                   | Core Concept                       |
+| -- | -------------------------- | ---------------------------------- |
+| 1  | Website unavailable        | EC2 + SG + Networking              |
+| 2  | High CPU                   | CloudWatch + Scaling               |
+| 3  | Private EC2 needs internet | NAT Gateway                        |
+| 4  | Public web application     | ALB                                |
+| 5  | Unhealthy backend          | Target Groups + Health Checks      |
+| 6  | Traffic spike              | Auto Scaling                       |
+| 7  | AZ failure                 | Multi-AZ                           |
+| 8  | Secure administration      | Systems Manager                    |
+| 9  | Application state problem  | Stateless architecture             |
+| 10 | Production architecture    | VPC + ALB + EC2 + ASG + CloudWatch |
+
+### The master mental model
+
+```text
+                         USERS
+                           │
+                           ▼
+                         ALB
+                           │
+                 ┌─────────┴─────────┐
+                 ▼                   ▼
+               AZ-A                AZ-B
+                 │                   │
+              EC2 #1              EC2 #2
+              EC2 #3              EC2 #4
+                 │                   │
+                 └─────────┬─────────┘
+                           │
+                      App / Data
+                           │
+                     Private Layer
+
+
+       ┌─────────────────────────────────────┐
+       │              CONTROL                │
+       │                                     │
+       │ Security Groups → Security          │
+       │ Auto Scaling    → Capacity          │
+       │ CloudWatch      → Monitoring        │
+       │ Systems Manager → Operations        │
+       │ Backups         → Recovery          │
+       └─────────────────────────────────────┘
+```
+
+**If you understand why each arrow exists in this diagram, you have the core EC2 architecture foundation needed to move from “I know EC2” to “I can reason about EC2 in real-world scenarios.”**
+
+# AWS EC2 — Another 100 Real-Time Scenario FAQs
+
+## Set 2: Scenarios 101–200
+
+These are deliberately **different from the first 100**, with more troubleshooting, production, architecture, DevOps, security, performance, and interview-style situations.
+
+---
+
+## 🔹 EC2 Launch & Instance Scenarios
+
+### 101. You launched EC2, but it immediately enters `stopped` state. What do you check?
+
+1. Check **EC2 system/instance status details** and recent events.
+2. Review the instance console output if available.
+3. Check whether the OS is shutting down during boot.
+4. Review user-data/bootstrap scripts for commands that stop or terminate the instance.
+5. Check CloudTrail for actions performed against the instance.
+
+---
+
+### 102. EC2 is stuck during boot. How do you troubleshoot?
+
+1. Check EC2 status checks.
+2. Review console output/system logs.
+3. Determine whether the problem is OS, filesystem, networking, or application-related.
+4. Review recent AMI, kernel, or configuration changes.
+5. If necessary, use recovery procedures involving the root volume.
+
+---
+
+### 103. A newly launched instance has the wrong hostname/configuration. Why?
+
+1. Check the AMI used to launch it.
+2. Review the user-data script.
+3. Check cloud-init configuration.
+4. Compare the instance with the Launch Template.
+5. Fix the source configuration instead of manually fixing every instance.
+
+---
+
+### 104. Your user-data script isn't running correctly. What do you check?
+
+1. Confirm the script is actually configured in the launch configuration.
+2. Check cloud-init/user-data logs.
+3. Verify shell syntax and commands.
+4. Check IAM permissions required by the script.
+5. Verify network access to packages or external services.
+
+---
+
+### 105. User-data works manually but fails during boot. Why?
+
+1. Boot-time environment differs from your interactive shell.
+2. Required environment variables may not exist.
+3. Network connectivity may not yet be ready.
+4. Commands may depend on services that haven't started.
+5. Add proper ordering, retries, logging, and error handling.
+
+---
+
+### 106. You need 50 identical EC2 instances. Should you launch them manually?
+
+1. No, manual creation introduces configuration drift.
+2. Use a Launch Template.
+3. Use an Auto Scaling Group or appropriate automation.
+4. Standardize AMI, Security Groups, IAM role, and configuration.
+5. Automate lifecycle management whenever possible.
+
+---
+
+### 107. You accidentally launched an expensive EC2 instance type. What should you do?
+
+1. Confirm whether the workload actually needs that capacity.
+2. Stop the instance if it isn't required.
+3. Right-size the workload after analyzing metrics.
+4. Check whether other unnecessary resources were created.
+5. Review cost controls to prevent recurrence.
+
+---
+
+### 108. An EC2 instance was launched in the wrong subnet. What are your options?
+
+1. An instance's subnet isn't something you simply switch like a normal setting.
+2. Plan a replacement instance in the correct subnet.
+3. Reuse the required AMI/configuration through a Launch Template.
+4. Move persistent data appropriately.
+5. Update DNS/load-balancer registration to the replacement.
+
+---
+
+### 109. You need to change the instance type. What should you consider?
+
+1. Check whether the instance type is compatible with the workload.
+2. Consider CPU, memory, network, and storage requirements.
+3. Depending on the change, the instance may need to be stopped.
+4. Validate application behavior after the change.
+5. Monitor performance and cost afterward.
+
+---
+
+### 110. Your instance type doesn't support a required feature. What do you do?
+
+1. Identify the exact feature requirement.
+2. Check supported instance families and sizes.
+3. Compare architecture compatibility.
+4. Test the replacement type.
+5. Update the Launch Template if the workload is managed through Auto Scaling.
+
+---
+
+# 🔹 AMI & Image Scenarios
+
+### 111. You need to launch 100 servers with identical software. What should you use?
+
+1. Build a standardized AMI.
+2. Install the required OS/application dependencies.
+3. Create the image after validating it.
+4. Use the AMI through a Launch Template.
+5. Automate instance deployment using Auto Scaling or infrastructure-as-code.
+
+---
+
+### 112. Your new AMI causes every Auto Scaling instance to fail. What happened?
+
+1. The AMI may contain a broken application or OS configuration.
+2. The Launch Template may have been updated incorrectly.
+3. User-data may depend on something missing from the AMI.
+4. Roll back to the previously known-good AMI.
+5. Test AMIs before using them in production.
+
+---
+
+### 113. How would you safely release a new AMI?
+
+1. Build the AMI from a controlled source.
+2. Test it on a standalone instance.
+3. Validate application health and dependencies.
+4. Gradually deploy it to production.
+5. Keep the previous AMI available for rollback.
+
+---
+
+### 114. Why shouldn't production AMIs contain unnecessary secrets?
+
+1. AMIs can be copied or shared depending on permissions.
+2. Secrets embedded in images create a security risk.
+3. Credentials can become stale.
+4. Use IAM roles and appropriate secret-management mechanisms.
+5. Keep images generic and inject environment-specific configuration securely.
+
+---
+
+### 115. Your AMI is huge and takes a long time to deploy. What can you improve?
+
+1. Remove unnecessary packages and files.
+2. Avoid storing large temporary datasets in the image.
+3. Separate application code/data where appropriate.
+4. Optimize image creation.
+5. Measure launch-time bottlenecks rather than optimizing blindly.
+
+---
+
+# 🔹 EBS & Storage Troubleshooting
+
+### 116. EC2 suddenly reports “No space left on device.” What do you do?
+
+1. Check filesystem usage.
+2. Identify the largest directories/files.
+3. Check application and system logs.
+4. Clean or rotate unnecessary data safely.
+5. Expand storage if the workload genuinely requires more capacity.
+
+---
+
+### 117. The EBS volume is healthy, but the application reports slow disk performance. Why?
+
+1. Check actual I/O utilization.
+2. Review volume type and configured performance.
+3. Check filesystem and OS-level behavior.
+4. Determine whether the application is issuing inefficient I/O.
+5. Compare workload requirements with provisioned capacity.
+
+---
+
+### 118. You deleted an EC2 instance and discovered important data is missing. Why?
+
+1. Determine whether the data was on instance store or EBS.
+2. Check EBS volume deletion behavior.
+3. Check available snapshots/backups.
+4. Review the instance's storage configuration.
+5. Establish a formal backup policy for future workloads.
+
+---
+
+### 119. Can two EC2 instances directly use the same EBS volume?
+
+1. Standard EBS usage is generally associated with one instance at a time.
+2. Certain EBS capabilities support specialized multi-attach scenarios.
+3. Applications must explicitly support concurrent access where applicable.
+4. A shared filesystem may be more appropriate for shared files.
+5. Choose storage based on the application's access pattern.
+
+---
+
+### 120. Your application needs shared files across many EC2 instances. What should you consider?
+
+1. Local EBS isn't automatically shared across instances.
+2. Consider a managed shared filesystem where appropriate.
+3. Object storage can be better for certain files.
+4. Design applications to avoid unnecessary shared filesystem dependencies.
+5. Select storage based on consistency, performance, and access requirements.
+
+---
+
+# 🔹 IAM & EC2 Permissions
+
+### 121. EC2 needs access to S3. How should you grant access?
+
+1. Create an IAM role.
+2. Attach the role to the EC2 instance.
+3. Grant only the required S3 permissions.
+4. Avoid embedding access keys in application files.
+5. Monitor and periodically review the permissions.
+
+---
+
+### 122. An EC2 application gets `AccessDenied` from S3. What do you check?
+
+1. Verify the instance has the correct IAM role.
+2. Check the role's attached policies.
+3. Check the S3 bucket policy.
+4. Check resource/identity conditions and explicit denies.
+5. Review CloudTrail for the failed API request.
+
+---
+
+### 123. The EC2 IAM role was changed, but the application still behaves unexpectedly. What might you check?
+
+1. Verify the new role is actually attached.
+2. Check whether the application cached credentials.
+3. Restart/reinitialize the relevant process if necessary.
+4. Confirm the new role contains required permissions.
+5. Review CloudTrail to see which identity made the API calls.
+
+---
+
+### 124. An application only needs read access to one S3 bucket. What permission should it have?
+
+1. Grant only the required S3 read actions.
+2. Scope access to the specific bucket/object resources.
+3. Avoid broad permissions such as full S3 administration.
+4. Test the application with least privilege.
+5. Expand permissions only when a legitimate requirement is identified.
+
+---
+
+### 125. Why is an IAM role better than putting AWS access keys into `/etc/environment`?
+
+1. Environment files can accidentally be exposed.
+2. Long-lived credentials are harder to manage safely.
+3. IAM roles provide temporary credentials.
+4. Permissions can be centrally managed.
+5. Credential rotation and revocation are easier.
+
+---
+
+# 🔹 DNS & Application Access
+
+### 126. Users see the old server after a migration. What could be happening?
+
+1. DNS records may still point to the old endpoint.
+2. DNS caching may delay propagation.
+3. Some clients may have cached DNS results.
+4. Check TTL and DNS configuration.
+5. Verify the new endpoint independently before changing DNS.
+
+---
+
+### 127. Why should you use DNS instead of hard-coded EC2 IPs?
+
+1. IP addresses can change.
+2. Auto Scaling creates and removes instances dynamically.
+3. Load balancers provide stable endpoints.
+4. DNS supports controlled migrations.
+5. It decouples clients from individual servers.
+
+---
+
+### 128. Your domain resolves correctly, but HTTPS fails. What do you investigate?
+
+1. Verify the ALB/listener or server is serving HTTPS.
+2. Check the certificate configuration.
+3. Verify the certificate matches the domain.
+4. Check Security Group access to port 443.
+5. Review TLS/application errors.
+
+---
+
+### 129. HTTP works but HTTPS doesn't. What are likely causes?
+
+1. Port 443 may not be allowed.
+2. HTTPS listener may not exist.
+3. Certificate configuration may be incorrect.
+4. The application/load balancer may not be configured for TLS.
+5. Check DNS and certificate association as well.
+
+---
+
+### 130. Your application works by IP but not by hostname. What should you check?
+
+1. Check DNS resolution.
+2. Verify the hostname points to the correct endpoint.
+3. Check virtual-host/application configuration.
+4. Check TLS certificate/SNI behavior for HTTPS.
+5. Test DNS and application layers separately.
+
+---
+
+# 🔹 ALB Advanced Scenarios
+
+### 131. You need `/api/*` requests to go to different servers than `/images/*`. How?
+
+1. Use ALB listener rules.
+2. Match the request path.
+3. Forward matching requests to different target groups.
+4. Keep each backend group independently scalable.
+5. Monitor each target group separately.
+
+---
+
+### 132. You want users from different hostnames to reach different applications. What can you use?
+
+1. Use ALB host-based routing.
+2. Define listener rules for each hostname.
+3. Forward each hostname to the appropriate target group.
+4. Keep applications independently managed.
+5. Ensure DNS records point to the ALB.
+
+---
+
+### 133. Your ALB target group has zero registered instances. What happens?
+
+1. There are no backend targets available.
+2. Requests cannot be successfully forwarded.
+3. The application will return errors to clients.
+4. Check Auto Scaling registration and deployment configuration.
+5. Verify target registration and health.
+
+---
+
+### 134. A target is registered but receives no traffic. What might be happening?
+
+1. The target may be unhealthy.
+2. Listener rules may not route traffic to that target group.
+3. Another target group may be handling the requests.
+4. Traffic distribution may simply be low.
+5. Check ALB listener rules and target health.
+
+---
+
+### 135. You want zero-downtime deployment behind an ALB. What approach can you use?
+
+1. Launch a new version alongside the old version.
+2. Register the new instances as targets.
+3. Verify health checks.
+4. Shift traffic gradually or according to the deployment strategy.
+5. Remove old instances only after the new version is validated.
+
+---
+
+# 🔹 Auto Scaling Advanced Scenarios
+
+### 136. You need more instances every morning at 9 AM. What can you use?
+
+1. Scheduled scaling can handle predictable demand.
+2. Configure the desired capacity ahead of the traffic increase.
+3. Combine scheduled scaling with dynamic scaling.
+4. Review historical traffic to determine capacity.
+5. Avoid relying solely on reactive scaling when demand is predictable.
+
+---
+
+### 137. Traffic is unpredictable. Should you use scheduled scaling only?
+
+1. No.
+2. Scheduled scaling works best for predictable patterns.
+3. Dynamic scaling can respond to real-time demand.
+4. Combining both can provide better behavior.
+5. Monitor scaling performance and tune policies.
+
+---
+
+### 138. Auto Scaling keeps adding instances but traffic isn't increasing. What could cause it?
+
+1. The scaling metric may be inappropriate.
+2. CPU could be high because of a software problem.
+3. A single unhealthy instance could distort the metric.
+4. Scaling thresholds may be too aggressive.
+5. Investigate the metric source before changing capacity.
+
+---
+
+### 139. Auto Scaling isn't adding instances quickly enough. What do you investigate?
+
+1. Check the scaling policy threshold.
+2. Review evaluation periods and stabilization settings.
+3. Check instance launch time.
+4. Check whether capacity or quotas are limiting launches.
+5. Consider predictive/scheduled scaling for known demand patterns.
+
+---
+
+### 140. Your Auto Scaling Group reaches maximum capacity every day. What does that indicate?
+
+1. Demand may exceed your configured maximum.
+2. The maximum capacity may be too low.
+3. The application may be inefficient.
+4. Downstream systems may be limiting useful scaling.
+5. Review capacity planning before simply increasing the maximum.
+
+---
+
+# 🔹 Deployment Scenarios
+
+### 141. You need to deploy a new application version to 20 EC2 instances. How should you avoid manual SSH?
+
+1. Use automated deployment tooling.
+2. Build a tested artifact or image.
+3. Deploy consistently across instances.
+4. Use health checks to validate the new version.
+5. Maintain a rollback strategy.
+
+---
+
+### 142. A deployment succeeds on 19 servers but fails on one. What could cause this?
+
+1. Configuration drift.
+2. Different package versions.
+3. Local filesystem differences.
+4. Instance-specific failure.
+5. Compare the server against the known-good configuration.
+
+---
+
+### 143. Why are deployment scripts important for EC2?
+
+1. They make changes repeatable.
+2. They reduce manual errors.
+3. They improve consistency across instances.
+4. They make rollback easier.
+5. They support scalable infrastructure operations.
+
+---
+
+### 144. Your deployment works in staging but fails in production. What do you compare?
+
+1. Environment variables/configuration.
+2. IAM permissions.
+3. Network connectivity.
+4. Instance/AMI/software versions.
+5. External dependencies and production-specific traffic patterns.
+
+---
+
+### 145. A new deployment increases latency. What would you investigate?
+
+1. Compare application latency before and after deployment.
+2. Review CPU, memory, disk, and network metrics.
+3. Examine application logs.
+4. Check database/external API calls.
+5. Roll back if necessary while investigating the root cause.
+
+---
+
+# 🔹 Patching & Maintenance
+
+### 146. You need to patch 100 EC2 instances. Should you manually SSH into all of them?
+
+1. No.
+2. Use centralized systems-management automation.
+3. Group instances based on environment/application.
+4. Test patches on a smaller group first.
+5. Maintain rollback/recovery procedures.
+
+---
+
+### 147. Why is patching production servers risky?
+
+1. Updates can introduce incompatibilities.
+2. Reboots may interrupt applications.
+3. Dependencies may change.
+4. Unexpected configuration changes can occur.
+5. Use testing, staged rollout, monitoring, and rollback procedures.
+
+---
+
+### 148. How can you reduce downtime during patching?
+
+1. Use multiple instances.
+2. Deploy across multiple Availability Zones.
+3. Remove instances from service during maintenance.
+4. Patch in batches.
+5. Verify health before returning instances to service.
+
+---
+
+### 149. One EC2 instance needs maintenance. How can you avoid user impact?
+
+1. Ensure other healthy instances are serving traffic.
+2. Drain/remove the instance from ALB traffic.
+3. Perform maintenance.
+4. Validate the instance afterward.
+5. Return it to service only when healthy.
+
+---
+
+### 150. Why should you patch AMIs as well as running instances?
+
+1. New instances may be launched from outdated images.
+2. Auto Scaling could recreate vulnerable software.
+3. Updating the base image improves consistency.
+4. Security fixes become part of future deployments.
+5. Maintain versioned, tested golden images.
+
+---
+
+# 🔹 Performance Scenarios
+
+### 151. CPU is low but requests are slow. What resource might be the bottleneck?
+
+1. Memory may be under pressure.
+2. Disk I/O may be slow.
+3. Network latency may be high.
+4. Database calls may be slow.
+5. External APIs may be causing delays.
+
+---
+
+### 152. CPU and memory are both low, but latency is high. What do you investigate?
+
+1. Check network latency.
+2. Check database response time.
+3. Check external API calls.
+4. Check application-level locks/queues.
+5. Review distributed tracing or detailed application logs if available.
+
+---
+
+### 153. The application becomes slow after increasing traffic but CPU isn't high. Why?
+
+1. The bottleneck may be the database.
+2. Network or connection limits may be reached.
+3. Disk I/O may be constrained.
+4. Application thread/connection pools may be exhausted.
+5. Examine all layers instead of relying only on CPU.
+
+---
+
+### 154. Your application opens thousands of database connections. What's the concern?
+
+1. The database may become overloaded.
+2. Connection establishment itself consumes resources.
+3. Application instances may multiply the connection count.
+4. Use appropriate connection pooling.
+5. Monitor database and application connection limits.
+
+---
+
+### 155. Why should you benchmark an EC2 instance before production use?
+
+1. Instance families behave differently under different workloads.
+2. Application performance depends on workload characteristics.
+3. Benchmarking helps determine the right size.
+4. It helps compare cost versus performance.
+5. Production decisions should be based on measurements rather than assumptions.
+
+---
+
+# 🔹 Troubleshooting Scenarios
+
+### 156. An EC2 instance is healthy but the website returns 500 errors. What does that tell you?
+
+1. Infrastructure may be functioning.
+2. The application is likely encountering an internal error.
+3. Check application logs.
+4. Check dependencies such as databases and APIs.
+5. Investigate the failing request path.
+
+---
+
+### 157. Website returns 404 after deployment. What do you check?
+
+1. Verify the requested route exists.
+2. Check application deployment contents.
+3. Check ALB routing rules if applicable.
+4. Verify web-server configuration.
+5. Compare the new version with the previous working version.
+
+---
+
+### 158. Website returns 403 unexpectedly. What might cause it?
+
+1. Application authorization rules.
+2. Web-server configuration.
+3. Security controls.
+4. ALB/listener behavior.
+5. Incorrect file permissions or access policies.
+
+---
+
+### 159. EC2 suddenly reboots. What do you investigate?
+
+1. Check system logs.
+2. Check application or OS events.
+3. Check scheduled maintenance/events.
+4. Investigate kernel or hardware-related indicators.
+5. Determine whether the reboot was manual, automated, or failure-related.
+
+---
+
+### 160. An instance becomes extremely slow after running for several days. What could cause it?
+
+1. Memory leak.
+2. Log accumulation.
+3. Disk exhaustion.
+4. Long-running process/resource leak.
+5. Compare metrics over time to identify gradual degradation.
+
+---
+
+# 🔹 High Availability & Recovery
+
+### 161. What is a single point of failure in an EC2 architecture?
+
+1. A component whose failure can stop the application.
+2. One EC2 instance is a simple example.
+3. One Availability Zone can also become a major dependency.
+4. Shared state systems can also become bottlenecks.
+5. Identify and remove critical single dependencies where availability matters.
+
+---
+
+### 162. Is two EC2 instances automatically highly available?
+
+1. No.
+2. They should ideally be distributed across AZs.
+3. A load balancer should route traffic appropriately.
+4. Application state must tolerate instance failure.
+5. The complete architecture—not just instance count—determines availability.
+
+---
+
+### 163. What is the difference between HA and fault tolerance?
+
+1. High availability aims to minimize service interruption.
+2. Fault tolerance aims to continue operating despite certain failures.
+3. Fault-tolerant designs often require greater redundancy.
+4. Both depend on the workload's requirements.
+5. Define acceptable downtime before designing the architecture.
+
+---
+
+### 164. Your application must recover within 15 minutes. What should you define?
+
+1. A Recovery Time Objective (RTO).
+2. A suitable backup/recovery mechanism.
+3. Automated infrastructure provisioning where possible.
+4. Tested restoration procedures.
+5. Regularly validate that recovery actually meets the target.
+
+---
+
+### 165. Your company says “we have backups,” but nobody has tested restoration. Is that enough?
+
+1. No.
+2. A backup is useful only if it can be restored successfully.
+3. Perform periodic recovery tests.
+4. Measure recovery time and data integrity.
+5. Update the recovery procedure based on test results.
+
+---
+
+# 🔹 Cost Optimization
+
+### 166. Ten development EC2 instances run all weekend. What could you improve?
+
+1. Identify non-production instances.
+2. Stop them outside working hours where appropriate.
+3. Automate start/stop schedules.
+4. Review instance sizing.
+5. Monitor whether the automation affects development workflows.
+
+---
+
+### 167. Your company has many idle EC2 instances. What should you do?
+
+1. Identify ownership and purpose.
+2. Check utilization metrics.
+3. Stop or terminate genuinely unused resources.
+4. Right-size underutilized instances.
+5. Implement resource tagging and lifecycle policies.
+
+---
+
+### 168. Why are tags important for EC2?
+
+1. They identify ownership and purpose.
+2. They support cost allocation.
+3. They help automation target resources.
+4. They simplify inventory management.
+5. Consistent tagging improves operational visibility.
+
+---
+
+### 169. How would you identify an EC2 instance nobody owns?
+
+1. Check tags.
+2. Check instance metadata/configuration.
+3. Review CloudTrail activity.
+4. Check cost and utilization information.
+5. Establish mandatory ownership tags going forward.
+
+---
+
+### 170. Why is “cheapest instance” not always the best cost choice?
+
+1. Performance may be insufficient.
+2. Slow processing can increase total costs.
+3. More instances may be required.
+4. Poor performance can impact customers.
+5. Optimize for total workload cost, not just hourly instance price.
+
+---
+
+# 🔹 Security Incident Scenarios
+
+### 171. You suspect an EC2 instance has been compromised. What is your first priority?
+
+1. Follow your incident-response process.
+2. Preserve evidence where required.
+3. Limit further unauthorized activity.
+4. Investigate logs and identities involved.
+5. Rebuild from a trusted image rather than assuming the existing OS is clean.
+
+---
+
+### 172. An EC2 instance is making unexpected outbound connections. What could you investigate?
+
+1. Identify destination addresses/domains.
+2. Identify the process making the connections.
+3. Review application behavior.
+4. Check security logs and CloudTrail for related activity.
+5. Treat unexplained behavior as a potential security incident.
+
+---
+
+### 173. CPU suddenly spikes on an EC2 server and unknown processes appear. What could this indicate?
+
+1. A compromised instance is one possibility.
+2. Investigate the unknown processes immediately.
+3. Check network connections.
+4. Review authentication and system logs.
+5. Follow your organization's incident-response and containment procedures.
+
+---
+
+### 174. Why should production EC2 instances not be directly exposed unnecessarily?
+
+1. Public exposure increases attack surface.
+2. Services may contain vulnerabilities.
+3. Automated scanning is common on the internet.
+4. Private architecture reduces unnecessary ingress.
+5. Put only required public-facing components on the public edge.
+
+---
+
+### 175. How can you reduce the attack surface of an EC2 fleet?
+
+1. Minimize publicly accessible instances.
+2. Restrict Security Groups.
+3. Remove unnecessary services and ports.
+4. Patch systems regularly.
+5. Monitor and audit access continuously.
+
+---
+
+# 🔹 Architecture Design Scenarios
+
+### 176. Design an EC2 architecture for a simple company website.
+
+1. Use a VPC with appropriate public/private networking.
+2. Put the web application behind an ALB if multiple instances are required.
+3. Use EC2 instances across suitable AZs.
+4. Apply restrictive Security Groups.
+5. Add CloudWatch monitoring and a backup/recovery strategy.
+
+---
+
+### 177. Design an EC2 architecture for a high-traffic API.
+
+1. Use an ALB as the entry point.
+2. Run stateless API servers in an Auto Scaling Group.
+3. Distribute instances across multiple AZs.
+4. Externalize persistent state to appropriate managed services.
+5. Monitor latency, errors, capacity, and downstream dependencies.
+
+---
+
+### 178. Design EC2 for a batch-processing workload.
+
+1. Identify whether jobs can tolerate interruptions.
+2. Use scalable worker instances.
+3. Consider Spot capacity where appropriate.
+4. Store input/output data outside ephemeral instance storage.
+5. Automate job scheduling, completion, failure handling, and cleanup.
+
+---
+
+### 179. Design EC2 for a development environment.
+
+1. Use appropriately sized instances.
+2. Restrict access to authorized developers.
+3. Use automated start/stop schedules when practical.
+4. Tag resources for ownership and cost tracking.
+5. Avoid production-level cost and complexity unless needed.
+
+---
+
+### 180. Design EC2 for a disaster-recovery environment.
+
+1. Define RTO and RPO first.
+2. Maintain appropriate AMIs and backups.
+3. Automate infrastructure recreation where possible.
+4. Keep recovery configuration documented and tested.
+5. Periodically perform disaster-recovery exercises.
+
+---
+
+# 🔹 Real Production Decision Scenarios
+
+### 181. Your application needs a server for only two hours every day. What should you consider?
+
+1. Don't keep a large instance running continuously.
+2. Automate lifecycle operations.
+3. Choose appropriate compute capacity.
+4. Review whether serverless/container options could fit.
+5. Compare total cost against operational complexity.
+
+---
+
+### 182. Your application needs 2 servers normally and 20 during promotions. What architecture fits?
+
+1. Use an Auto Scaling Group.
+2. Set appropriate minimum and desired capacity.
+3. Allow maximum capacity for promotion traffic.
+4. Put an ALB in front.
+5. Use predictive/scheduled and dynamic scaling where appropriate.
+
+---
+
+### 183. Your database cannot handle more traffic, but EC2 can scale indefinitely. What's the problem?
+
+1. The database has become the bottleneck.
+2. Adding more EC2 instances won't necessarily help.
+3. Application scaling must consider downstream capacity.
+4. Optimize database usage and connection management.
+5. Scale the complete architecture, not just EC2.
+
+---
+
+### 184. Your EC2 fleet scales successfully but application performance doesn't improve. Why?
+
+1. The bottleneck may be outside EC2.
+2. Database capacity may be limiting.
+3. A shared external API may be slow.
+4. Application state or locking may prevent parallel scaling.
+5. Use end-to-end metrics to find the actual bottleneck.
+
+---
+
+### 185. When should you not use Auto Scaling?
+
+1. When the workload cannot safely run multiple instances.
+2. When application state is tightly tied to one server.
+3. When scaling could corrupt or duplicate work.
+4. When the workload has strict single-instance requirements.
+5. Even then, consider whether the application can be redesigned for resilience.
+
+---
+
+# 🔹 EC2 Metadata & Instance Identity
+
+### 186. An application needs information about its own EC2 instance. What can it use?
+
+1. EC2 instance metadata provides instance information.
+2. Applications can retrieve relevant metadata from the instance.
+3. Use secure metadata configuration practices.
+4. Avoid exposing metadata unnecessarily.
+5. Only retrieve information actually needed by the application.
+
+---
+
+### 187. Why is IMDSv2 important?
+
+1. It provides a more secure approach to EC2 instance metadata access.
+2. It helps reduce certain metadata credential-exposure risks.
+3. Applications should support the required metadata interaction.
+4. Configure instance metadata options according to security requirements.
+5. Test applications before enforcing stricter metadata settings.
+
+---
+
+### 188. An application stopped working after enforcing IMDSv2. Why?
+
+1. The application may have been using the older metadata access pattern.
+2. It may not support token-based metadata requests.
+3. Update the application/SDK where required.
+4. Test compatibility before enforcing the setting fleet-wide.
+5. Avoid weakening security as a first response.
+
+---
+
+# 🔹 Logs & Incident Analysis
+
+### 189. The outage happened at 2:15 PM. How do you investigate?
+
+1. Establish a precise timeline.
+2. Check CloudWatch metrics around 2:15 PM.
+3. Review application and system logs.
+4. Check deployments, configuration changes, and CloudTrail activity.
+5. Correlate events to identify the most likely trigger.
+
+---
+
+### 190. Why are timestamps important during incident investigation?
+
+1. They establish event order.
+2. They allow correlation between systems.
+3. They help identify what changed before the failure.
+4. They make troubleshooting reproducible.
+5. Consistent time synchronization improves analysis.
+
+---
+
+### 191. Application logs are scattered across 50 EC2 instances. What's the problem?
+
+1. Investigation becomes slow.
+2. Logs may be lost when instances are replaced.
+3. Searching across servers becomes difficult.
+4. Centralized logging provides better visibility.
+5. Retention and access should be designed appropriately.
+
+---
+
+### 192. Why should logs survive EC2 termination?
+
+1. Auto Scaling instances may be terminated regularly.
+2. Local logs disappear with the instance.
+3. Centralized log storage preserves operational history.
+4. Historical logs are valuable for incident investigation.
+5. Configure appropriate retention and access controls.
+
+---
+
+# 🔹 Advanced Interview Scenarios
+
+### 193. Why shouldn't an ALB target group contain unhealthy instances?
+
+1. They cannot reliably serve requests.
+2. Health checks identify their condition.
+3. Routing traffic to them creates user failures.
+4. Healthy-target routing improves availability.
+5. Investigate why instances become unhealthy rather than ignoring the signal.
+
+---
+
+### 194. Why is an Auto Scaling Group not a load balancer?
+
+1. Auto Scaling manages instance capacity.
+2. A load balancer distributes network/application traffic.
+3. Auto Scaling launches and terminates instances.
+4. The ALB routes requests to registered targets.
+5. They commonly work together but perform different jobs.
+
+---
+
+### 195. Why isn't an ALB a backup solution?
+
+1. It distributes traffic.
+2. It can route around unhealthy targets.
+3. It doesn't protect application data.
+4. It doesn't replace backups or disaster recovery.
+5. Availability and data recovery solve different problems.
+
+---
+
+### 196. Why isn't an AMI a complete disaster-recovery strategy?
+
+1. An AMI primarily captures a server image/configuration.
+2. Application data may live elsewhere.
+3. Database recovery needs its own strategy.
+4. Recovery networking/configuration also matters.
+5. A complete DR plan includes infrastructure, data, dependencies, and testing.
+
+---
+
+### 197. Why should application data not normally live only on the EC2 root volume?
+
+1. Instances may be replaced.
+2. Auto Scaling creates disposable servers.
+3. Local data complicates recovery.
+4. Shared/persistent data should use appropriate durable services.
+5. Stateless instances are easier to scale and replace.
+
+---
+
+### 198. What is the biggest EC2 mistake beginners make in production?
+
+1. Treating one EC2 instance as the entire architecture.
+2. Ignoring networking and Security Groups.
+3. Storing important data only locally.
+4. Managing servers manually instead of automating.
+5. Failing to plan monitoring, backups, scaling, and recovery.
+
+---
+
+### 199. If you could improve only three things in a fragile EC2 application, what would you choose?
+
+1. Remove single points of failure using multiple instances/AZs.
+2. Put controlled load balancing and Auto Scaling in place.
+3. Establish strong monitoring, logging, backups, and recovery.
+4. Then improve security and automation.
+5. Prioritize based on business impact and failure risk.
+
+---
+
+# 🏆 200. Final Master Scenario — You're the AWS Engineer
+
+### Scenario
+
+> A production e-commerce application is running on four EC2 instances behind an ALB. During a major sale, users report intermittent 502 errors, CPU reaches 95%, some instances become unhealthy, and the database is also showing high connection counts. What do you do?
+
+### Answer
+
+1. **Stabilize the service:** Check ALB target health and remove unhealthy instances from serving traffic; confirm healthy capacity remains available across AZs.
+2. **Investigate EC2:** Analyze CPU, memory, network, application logs, and recent deployments to determine whether the application is overloaded or malfunctioning.
+3. **Scale carefully:** Allow Auto Scaling to add capacity if the application tier is the bottleneck, but don't blindly scale if the database is already saturated.
+4. **Investigate the database:** High connection counts may indicate connection-pool problems or database capacity limits; optimize connection management before creating unlimited application instances.
+5. **After recovery:** Perform a root-cause analysis, review scaling thresholds, load-test the architecture, improve database connection handling, and update monitoring/alerting so the same failure is detected earlier.
+
+---
+
+# 🧠 The Bigger EC2 Picture
+
+After **200 scenarios**, try to think about EC2 as **one system**, not as an isolated virtual machine:
+
+```text
+                         🌎 USERS
+                            │
+                            ▼
+                    ┌──────────────┐
+                    │     ALB      │
+                    └──────┬───────┘
+                           │
+              ┌────────────┴────────────┐
+              ▼                         ▼
+           AZ-A                       AZ-B
+              │                         │
+        ┌─────┴─────┐             ┌─────┴─────┐
+        │   EC2     │             │   EC2     │
+        │   EC2     │             │   EC2     │
+        └─────┬─────┘             └─────┬─────┘
+              │                         │
+              └────────────┬────────────┘
+                           ▼
+                    DATA / SERVICES
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+    Monitoring          Security           Backup
+    CloudWatch          IAM/SG             Recovery
+        │
+        ▼
+   Auto Scaling
+```
+
+### The key production thought process is:
+
+**User problem → ALB → Target health → EC2 → Application → Database → Networking → Security → Metrics/Logs → Scaling → Recovery**
+
+That's the chain you should mentally walk through whenever you're given an **EC2 real-time troubleshooting scenario**.
+
